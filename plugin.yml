@@ -1,0 +1,8 @@
+name: OutSkinLag
+api-version: [5.23.1, 5.27.1]
+
+version: 0.0.1
+author: WhatClick
+website: github.com/WhatClick
+
+description: Prohibe la entrada a los jugadores que portan skins con demasiados bloques
