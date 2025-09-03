@@ -1,49 +1,38 @@
 <?php
 
+declare(strict_types=1);
+
 namespace WhatClick\OutSkinLag\listener;
 
 use pocketmine\event\Listener;
 use pocketmine\event\player\PlayerCreationEvent;
-
+use pocketmine\utils\SingletonTrait;
 use WhatClick\OutSkinLag\Main;
 
-class SkinCheckListener implements Listener {
+final class SkinCheckListener implements Listener
+{
+    use SingletonTrait;
 
-    public function __construct(private Main $plugin) {}
-
-    public function onPlayerCreation(PlayerCreationEvent $event): void {
-      
-        $skinData = $event->getSkin();
-        $geometryData = $skinData->getGeometryData();
-
-        if ($geometryData === "") {
-            return;
-        }
+    public function onPlayerCreation(PlayerCreationEvent $event): void
+    {
+        $geometryData = $event->getSkin()->getGeometryData();
+        if (empty($geometryData)) return;
 
         $decoded = json_decode($geometryData, true);
-        if (!isset($decoded["minecraft:geometry"])) {
-            return;
-        }
+        if (!isset($decoded["minecraft:geometry"]) || !is_array($decoded["minecraft:geometry"])) return;
 
-        $totalCubes = 0;
-      
-        foreach ($decoded["minecraft:geometry"] as $model) {
-            foreach ($model["bones"] ?? [] as $bone) {
-                foreach ($bone["cubes"] ?? [] as $cube) {
-                    $totalCubes++;
-                }
-            }
-        }
+        $totalCubes = array_sum(array_map(
+            fn($model) => array_sum(array_map(
+                fn($bone) => count($bone["cubes"] ?? []), 
+                $model["bones"] ?? []
+            )), 
+            $decoded["minecraft:geometry"]
+        ));
 
-        $max = $this->plugin->getMaxCubes();
-      
-        if ($totalCubes > $max) {
-          
-            $playerInfo = $event->getUsername();
-            $message = $this->plugin->getKickMessage($totalCubes);
-            $event->setPlayerCreationCancelled(true, $message);
-
-            $this->plugin->getLogger()->warning("El jugador '$playerInfo' fue bloqueado por usar una skin con $totalCubes cubos (límite: $max).");
+        $main = Main::getInstance();
+        if ($totalCubes > $main->getMaxCubes()) {
+            $event->setPlayerCreationCancelled(true, $main->getKickMessage($totalCubes));
+            $main->getLogger()->warning("Jugador '{$event->getUsername()}' bloqueado: {$totalCubes} cubos (límite: {$main->getMaxCubes()})");
         }
     }
 }
